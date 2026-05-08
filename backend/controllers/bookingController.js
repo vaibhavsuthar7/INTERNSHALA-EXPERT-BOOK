@@ -1,4 +1,17 @@
 const Booking = require('../models/Booking');
+const { Mutex } = require('async-mutex');
+
+// Map to store locks for specific time slots to prevent race conditions
+const slotLocks = new Map();
+
+// Helper to get or create a lock for a specific slot
+const getLockForSlot = (expertId, date, timeSlot) => {
+  const key = `${expertId}-${date}-${timeSlot}`;
+  if (!slotLocks.has(key)) {
+    slotLocks.set(key, new Mutex());
+  }
+  return slotLocks.get(key);
+};
 
 exports.createBooking = async (req, res) => {
   try {
@@ -9,28 +22,41 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ error: 'All fields except notes are required' });
     }
 
-    // Explicit check for double booking to give a nice error message before DB throws
-    const existingBooking = await Booking.findOne({ expertId, date, timeSlot });
-    if (existingBooking) {
-      return res.status(409).json({ error: 'This time slot is already booked.' });
+    // GET A LOCK for this specific slot to explicitly prevent race conditions
+    // If two users click at the EXACT same millisecond, one will wait here.
+    const lock = getLockForSlot(expertId, date, timeSlot);
+    const release = await lock.acquire();
+
+    try {
+      // 1. Explicit check inside the lock
+      const existingBooking = await Booking.findOne({ expertId, date, timeSlot });
+      if (existingBooking) {
+        release(); // release lock before returning error
+        return res.status(409).json({ error: 'This time slot was just booked by someone else.' });
+      }
+
+      // 2. Create and save the booking
+      const booking = new Booking({
+        expertId, userName, userEmail, userPhone, date, timeSlot, notes
+      });
+
+      await booking.save();
+
+      // Emit event to update clients in real-time
+      if (req.io) {
+        req.io.emit('slot_booked', { expertId, date, timeSlot });
+      }
+
+      release(); // Release the lock
+      res.status(201).json({ message: 'Booking successful', booking });
+    } catch (err) {
+      release(); // Ensure lock is released on error
+      if (err.code === 11000) {
+        return res.status(409).json({ error: 'This time slot is already booked.' });
+      }
+      throw err; // Pass to outer catch
     }
-
-    const booking = new Booking({
-      expertId, userName, userEmail, userPhone, date, timeSlot, notes
-    });
-
-    await booking.save();
-
-    // Emit event to update clients in real-time
-    if (req.io) {
-      req.io.emit('slot_booked', { expertId, date, timeSlot });
-    }
-
-    res.status(201).json({ message: 'Booking successful', booking });
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(409).json({ error: 'This time slot is already booked.' });
-    }
     console.error(err);
     res.status(500).json({ error: 'Server Error' });
   }
