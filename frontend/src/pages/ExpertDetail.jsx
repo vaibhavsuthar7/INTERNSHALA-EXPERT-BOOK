@@ -32,7 +32,9 @@ const ExpertDetail = () => {
 
   useEffect(() => {
     fetchExpertDetails();
+  }, [id]);
 
+  useEffect(() => {
     const socket = io(SOCKET_URL);
     socket.on('slot_booked', (data) => {
       if (data.expertId === id) {
