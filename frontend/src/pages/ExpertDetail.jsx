@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
@@ -30,12 +30,24 @@ const ExpertDetail = () => {
   const [bookingMessage, setBookingMessage] = useState(null);
   const [bookingError, setBookingError] = useState(null);
 
+  const selectedDateRef = useRef(selectedDate);
+  const selectedSlotRef = useRef(selectedSlot);
+  const bookingLoadingRef = useRef(bookingLoading);
+
+  // Keep refs updated with latest state without triggering re-renders
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+    selectedSlotRef.current = selectedSlot;
+    bookingLoadingRef.current = bookingLoading;
+  }, [selectedDate, selectedSlot, bookingLoading]);
+
   useEffect(() => {
     fetchExpertDetails();
   }, [id]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL);
+    
     socket.on('slot_booked', (data) => {
       if (data.expertId === id) {
         // Remove booked slot from schedule
@@ -51,8 +63,12 @@ const ExpertDetail = () => {
           });
         });
 
-        // If currently selected slot gets booked
-        if (selectedDate === data.date && selectedSlot === data.timeSlot) {
+        // Use refs to check current state to avoid reconnecting socket
+        if (
+          selectedDateRef.current === data.date && 
+          selectedSlotRef.current === data.timeSlot && 
+          !bookingLoadingRef.current
+        ) {
           setSelectedSlot('');
           setBookingError('Sorry, this slot was just booked by someone else.');
         }
@@ -60,7 +76,7 @@ const ExpertDetail = () => {
     });
 
     return () => socket.disconnect();
-  }, [id, selectedDate, selectedSlot]);
+  }, [id]);
 
   const fetchExpertDetails = async () => {
     try {
@@ -99,6 +115,7 @@ const ExpertDetail = () => {
       await axios.post(`${API_URL}/bookings`, payload);
       
       setBookingMessage('Booking successful! We will confirm your session soon.');
+      setBookingError(null); // Clear any socket errors that might have appeared
       setFormData({ userName: '', userEmail: '', userPhone: '', notes: '' });
       setSelectedSlot('');
       
