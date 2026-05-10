@@ -4,8 +4,9 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { Star, Clock, Calendar as CalendarIcon, ArrowLeft } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
-const SOCKET_URL = 'http://localhost:5000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const API_URL = `${BACKEND_URL}/api`;
+const SOCKET_URL = BACKEND_URL;
 
 const ExpertDetail = () => {
   const { id } = useParams();

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import { Calendar, Clock, User, CheckCircle, Clock as ClockIcon } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const API_URL = `${BACKEND_URL}/api`;
 
 const MyBookings = () => {
   const [email, setEmail] = useState('');

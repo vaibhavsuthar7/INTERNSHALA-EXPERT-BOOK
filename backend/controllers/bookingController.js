@@ -22,13 +22,12 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ error: 'All fields except notes are required' });
     }
 
-    // GET A LOCK for this specific slot to explicitly prevent race conditions
-    // If two users click at the EXACT same millisecond, one will wait here.
+    // Lock the slot to prevent race conditions
     const lock = getLockForSlot(expertId, date, timeSlot);
     const release = await lock.acquire();
 
     try {
-      // 1. Explicit check inside the lock
+      // Check if already booked
       const existingBooking = await Booking.findOne({ expertId, date, timeSlot });
       if (existingBooking) {
         release(); // release lock before returning error

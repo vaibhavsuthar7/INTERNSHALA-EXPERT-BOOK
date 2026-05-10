@@ -27,14 +27,11 @@ app.use((req, res, next) => {
 });
 
 // Database connection
-const { MongoMemoryServer } = require('mongodb-memory-server');
-
 const connectDB = async () => {
   try {
-    const mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
+    const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/expert-booking';
     await mongoose.connect(mongoUri);
-    console.log('MongoDB in-memory connected at:', mongoUri);
+    console.log('MongoDB connected successfully');
     
     // Seed data on startup
     const Expert = require('./models/Expert');
