@@ -156,6 +156,12 @@ const ExpertList = () => {
         <div className="experts-scroll-section mt-4">
           <h2 style={{ fontSize: '1.25rem', marginBottom: '20px', fontWeight: 700 }}>More Experts</h2>
           
+          {error && (
+            <div className="alert alert-error" style={{ marginBottom: '20px' }}>
+              {error}
+            </div>
+          )}
+
           {loading ? (
              <div className="spinner"></div>
           ) : experts.length === 0 ? (
